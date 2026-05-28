@@ -284,6 +284,9 @@ public class EntityPortalLock extends JavaPlugin implements Listener, CommandExe
     public void onEntityPortal(EntityPortalEnterEvent event) {
 		boolean shouldDeny = (isBlacklistMode == targetEntities.contains(event.getEntityType()));
         if (shouldDeny) {
+			if (event.getEntity() instanceof org.bukkit.entity.Player) {
+				event.getEntity().sendMessage("你无法使用传送门");
+			}
             event.setCancelled(true);
         }
     }

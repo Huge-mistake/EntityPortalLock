@@ -3,6 +3,7 @@ main: com.EntityPortalLock.EntityPortalLock
 version: ${project.version}
 description: EntityPortalLock
 api-version: 1.13
+folia-supported: true
 author: CatTeaA
 
 commands:

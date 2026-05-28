@@ -137,7 +137,7 @@ public class EntityPortalLock extends JavaPlugin implements Listener, CommandExe
                 EntityType type = EntityType.valueOf(args[1].toUpperCase(Locale.ROOT));
                 if (targetEntities.add(type)) {
                     saveEntityListToConfig();
-                    sendMessage(sender, "Messages.type_add", "%entity%",type.name());
+                    sendMessage(sender, "Messages.type_add", "%entity%", type.name());
                 } else {
                     sendMessage(sender, "Messages.type_already_in_list", "%entity%", type.name());
                 }

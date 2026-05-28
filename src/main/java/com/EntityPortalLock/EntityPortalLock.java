@@ -26,17 +26,17 @@ import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collections;
-import java.util.EnumSet;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
 public class EntityPortalLock extends JavaPlugin implements Listener, CommandExecutor, TabCompleter {
 
-	private volatile Set<EntityType> targetEntities = Collections.unmodifiableSet(EnumSet.noneOf(EntityType.class));
+    private final Set<EntityType> targetEntities = ConcurrentHashMap.newKeySet();
     private volatile boolean isBlacklistMode = true;
     private FileConfiguration defaultConfig;
     private BukkitAudiences adventure;
@@ -237,29 +237,26 @@ public class EntityPortalLock extends JavaPlugin implements Listener, CommandExe
             }
         }
         List<String> entityNames = config.getStringList("EntityTypeList");
-		Set<EntityType> tempEntities = entityNames.stream()
-				.map(name -> {
-					try {
-						return EntityType.valueOf(name.toUpperCase(Locale.ROOT));
-					} catch (IllegalArgumentException e) {
-						sendMessage(Bukkit.getConsoleSender(), "Messages.type_load_warning", "%entity%", name);
-						return null;
-					}
-				})
-				.filter(Objects::nonNull)
-				.collect(Collectors.toCollection(() -> EnumSet.noneOf(EntityType.class)));
-
-        List<String> loadedEntityNames = tempEntities.stream()
-                .map(EntityType::name)
-                .collect(Collectors.toList());
-
+        List<EntityType> tempEntities = new ArrayList<>();
+        List<String> loadedEntityNames = new ArrayList<>();
+        for (String name : entityNames) {
+            try {
+                EntityType type = EntityType.valueOf(name.toUpperCase());
+                tempEntities.add(type);
+                loadedEntityNames.add(type.name());
+            } catch (IllegalArgumentException e) {
+                sendMessage(Bukkit.getConsoleSender(), "Messages.type_load_warning", "%entity%", name);
+            }
+        }
         if (loadedEntityNames.isEmpty()) {
             sendMessage(Bukkit.getConsoleSender(), "Messages.list_empty");
         } else {
             String entityList = String.join(", ", loadedEntityNames);
             sendMessage(Bukkit.getConsoleSender(), "Messages.type_load_success", "%entity%", entityList);
         }
-		targetEntities = Collections.unmodifiableSet(tempEntities);
+        tempEntities.sort(Comparator.comparing(EntityType::name));
+        targetEntities.clear();
+        targetEntities.addAll(tempEntities);
     }
 
     private void reloadConfigSettings() {
@@ -274,20 +271,18 @@ public class EntityPortalLock extends JavaPlugin implements Listener, CommandExe
 
     private void saveEntityListToConfig() {
         FileConfiguration config = getConfig();
-		Set<EntityType> snapshot = targetEntities;
-        List<String> entityNames = snapshot.stream()
-                .map(EntityType::name)
-                .sorted()
-                .collect(Collectors.toList());
+        List<String> entityNames = new ArrayList<>();
+        for (EntityType type : targetEntities) {
+            entityNames.add(type.name());
+        }
+        entityNames.sort(Comparator.naturalOrder());
         config.set("EntityTypeList", entityNames);
         saveConfig();
     }
 
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
     public void onEntityPortal(EntityPortalEvent event) {
-		final boolean currentMode = isBlacklistMode;
-		final Set<EntityType> currentEntities = targetEntities;
-		boolean shouldDeny = (currentMode == currentEntities.contains(event.getEntityType()));
+		boolean shouldDeny = (isBlacklistMode == targetEntities.contains(event.getEntityType()));
         if (shouldDeny) {
             event.setCancelled(true);
         }

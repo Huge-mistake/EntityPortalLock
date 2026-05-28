@@ -20,44 +20,53 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.entity.EntityPortalEvent;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.jetbrains.annotations.NotNull;
+import org.jspecify.annotations.NonNull;
 
 import java.io.File;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Comparator;
+import java.util.Collections;
+import java.util.EnumSet;
 import java.util.List;
+import java.util.Locale;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 public class EntityPortalLock extends JavaPlugin implements Listener, CommandExecutor, TabCompleter {
 
-    private final Set<EntityType> targetEntities = ConcurrentHashMap.newKeySet();
-    private boolean isBlacklistMode = true;
+	private volatile Set<EntityType> targetEntities = Collections.unmodifiableSet(EnumSet.noneOf(EntityType.class));
+    private volatile boolean isBlacklistMode = true;
     private FileConfiguration defaultConfig;
     private BukkitAudiences adventure;
     private static final MiniMessage MINI_MESSAGE = MiniMessage.miniMessage();
-    private String PREFIX = "";
+    private volatile String PREFIX = "";
 
-    private static final List<String> ALL_ENTITY_TYPES = Arrays.stream(EntityType.values())
-            .map(type -> type.name().toLowerCase())
-            .sorted(String.CASE_INSENSITIVE_ORDER)
-            .collect(Collectors.toList());
+	private static final Map<String, EntityType> ENTITY_TYPE_MAP = Arrays.stream(
+			EntityType.values()).collect(Collectors.toMap(
+			type -> type.name().toLowerCase(Locale.ROOT), Function.identity())
+	);
 
-    private List<String> getAllEntityTypeNames() {
-        return ALL_ENTITY_TYPES;
-    }
+	private static final List<Map.Entry<String, EntityType>> ALL_ENTITY_TYPES = ENTITY_TYPE_MAP
+			.entrySet()
+			.stream()
+			.sorted(Map.Entry.comparingByKey())
+			.collect(Collectors.collectingAndThen(Collectors.toList(), Collections::unmodifiableList));
 
-    private List<String> filterCompletions(List<String> candidates, String input) {
-        String lowerInput = input.toLowerCase();
-        return candidates.stream()
-                .filter(candidate -> candidate.startsWith(lowerInput))
-                .sorted(String.CASE_INSENSITIVE_ORDER)
-                .collect(Collectors.toList());
-    }
+	private List<String> filterCompletions(List<String> candidates, String input) {
+		String lowerInput = input.toLowerCase(Locale.ROOT);
+		List<String> filtered = new ArrayList<>();
+		for (String candidate : candidates) {
+			if (candidate.toLowerCase(Locale.ROOT).startsWith(lowerInput)) {
+				filtered.add(candidate);
+			}
+		}
+		return filtered;
+	}
 
     private void sendMessage(CommandSender sender, String configKey, String... replacements) {
         FileConfiguration config = getConfig();
@@ -113,7 +122,6 @@ public class EntityPortalLock extends JavaPlugin implements Listener, CommandExe
 
     @Override
     public void onDisable() {
-        targetEntities.clear();
         sendMessage(Bukkit.getConsoleSender(), "Messages.disable_plugin");
         if (this.adventure != null) {
             this.adventure.close();
@@ -138,20 +146,19 @@ public class EntityPortalLock extends JavaPlugin implements Listener, CommandExe
                 sendMessage(sender, "Messages.usage_add");
                 return true;
             }
-            try {
-                EntityType type = EntityType.valueOf(args[1].toUpperCase());
-                if (targetEntities.add(type)) {
-                    saveEntityListToConfig();
-                    sendMessage(sender, "Messages.type_add",
-                            "%entity%",type.name());
-                } else {
-                    sendMessage(sender, "Messages.type_already_in_list",
-                            "%entity%", type.name());
-                }
-            } catch (IllegalArgumentException e) {
-                sendMessage(sender, "Messages.invalid_type",
-                        "%entity%", args[1]);
-            }
+			EntityType type = ENTITY_TYPE_MAP.get(args[1].toLowerCase(Locale.ROOT));
+			if (type == null) {
+				sendMessage(sender, "Messages.invalid_type", "%entity%", args[1]);
+				return true;
+			}
+			Set<EntityType> newSet = copyEntitySet();
+			if (newSet.add(type)) {
+				targetEntities = Collections.unmodifiableSet(newSet);
+				saveEntityListToConfig();
+				sendMessage(sender, "Messages.type_add", "%entity%", type.name());
+			} else {
+				sendMessage(sender, "Messages.type_already_in_list", "%entity%", type.name());
+			}
             return true;
         }
         // EntityPortalLock remove
@@ -160,20 +167,19 @@ public class EntityPortalLock extends JavaPlugin implements Listener, CommandExe
                 sendMessage(sender, "Messages.usage_remove");
                 return true;
             }
-            try {
-                EntityType type = EntityType.valueOf(args[1].toUpperCase());
-                if (targetEntities.remove(type)) {
-                    saveEntityListToConfig();
-                    sendMessage(sender, "Messages.type_remove",
-                            "%entity%", type.name());
-                } else {
-                    sendMessage(sender, "Messages.type_not_in_list",
-                            "%entity%", type.name());
-                }
-            } catch (IllegalArgumentException e) {
-                sendMessage(sender, "Messages.invalid_type",
-                        "%entity%", args[1]);
-            }
+			EntityType type = ENTITY_TYPE_MAP.get(args[1].toLowerCase(Locale.ROOT));
+			if (type == null) {
+				sendMessage(sender, "Messages.invalid_type", "%entity%", args[1]);
+				return true;
+			}
+			Set<EntityType> newSet = copyEntitySet();
+			if (newSet.remove(type)) {
+				targetEntities = Collections.unmodifiableSet(newSet);
+				saveEntityListToConfig();
+				sendMessage(sender, "Messages.type_remove", "%entity%", type.name());
+			} else {
+				sendMessage(sender, "Messages.type_not_in_list", "%entity%", type.name());
+			}
             return true;
         }
         // EntityPortalLock reload
@@ -201,6 +207,12 @@ public class EntityPortalLock extends JavaPlugin implements Listener, CommandExe
         return true;
     }
 
+	private Set<EntityType> copyEntitySet() {
+		return targetEntities.isEmpty()
+				? EnumSet.noneOf(EntityType.class)
+				: EnumSet.copyOf(targetEntities);
+	}
+
     @Override
     public List<String> onTabComplete(CommandSender sender, @NotNull Command cmd,
                                       @NotNull String label, String @NotNull [] args) {
@@ -215,42 +227,42 @@ public class EntityPortalLock extends JavaPlugin implements Listener, CommandExe
                 completions.add("reload");
                 completions.add("list");
                 return filterCompletions(completions, args[0]);
-            case 2:
-                String subCommand = args[0].toLowerCase();
-                if (subCommand.equals("add") || subCommand.equals("remove")) {
+			case 2:
+				String subCommand = args[0].toLowerCase(Locale.ROOT);
+				if (subCommand.equals("add") || subCommand.equals("remove")) {
+					List<String> candidates = getStrings(subCommand);
+					return filterCompletions(candidates, args[1]);
+				}
 
-                    List<String> allEntityTypes = getAllEntityTypeNames();
-
-                    if (subCommand.equals("add")) {
-                        allEntityTypes = allEntityTypes.stream()
-                                .filter(type -> {
-                                    try {
-                                        return !targetEntities.contains(EntityType.valueOf(type));
-                                    } catch (IllegalArgumentException e) {
-                                        return false;
-                                    }
-                                })
-                                .collect(Collectors.toList());
-                    }
-                    if (subCommand.equals("remove")) {
-                        allEntityTypes = allEntityTypes.stream()
-                                .filter(type -> {
-                                    try {
-                                        return targetEntities.contains(EntityType.valueOf(type));
-                                    } catch (IllegalArgumentException e) {
-                                        return false;
-                                    }
-                                })
-                                .collect(Collectors.toList());
-                    }
-                    return filterCompletions(allEntityTypes, args[1]);
-                }
-                break;
+				break;
         }
         return completions;
     }
 
-    private void loadConfigSettings() {
+	private @NonNull List<String> getStrings(String subCommand) {
+		Set<EntityType> snapshot = targetEntities;
+		List<String> candidates = new ArrayList<>();
+		for (Map.Entry<String, EntityType> entry : ALL_ENTITY_TYPES) {
+			String typeName = entry.getKey();
+			EntityType type = entry.getValue();
+			if (type == null) {
+				continue;
+			}
+			boolean contains = snapshot.contains(type);
+			if (subCommand.equals("add")) {
+				if (!contains) {
+					candidates.add(typeName);
+				}
+			} else {
+				if (contains) {
+					candidates.add(typeName);
+				}
+			}
+		}
+		return candidates;
+	}
+
+	private void loadConfigSettings() {
         FileConfiguration config = getConfig();
         isBlacklistMode = config.getBoolean("ListMode.Blacklist", true);
         PREFIX = config.getString("Prefix");
@@ -263,18 +275,21 @@ public class EntityPortalLock extends JavaPlugin implements Listener, CommandExe
             }
         }
         List<String> entityNames = config.getStringList("EntityTypeList");
-        List<EntityType> tempEntities = new ArrayList<>();
-        List<String> loadedEntityNames = new ArrayList<>();
-        for (String name : entityNames) {
-            try {
-                EntityType type = EntityType.valueOf(name.toUpperCase());
-                tempEntities.add(type);
-                loadedEntityNames.add(type.name());
-            } catch (IllegalArgumentException e) {
-                sendMessage(Bukkit.getConsoleSender(), "Messages.type_load_warning",
-                        "%entity%", name);
-            }
-        }
+		Set<EntityType> tempEntities = entityNames.stream()
+				.map(name -> {
+					EntityType type = ENTITY_TYPE_MAP.get(name.toLowerCase(Locale.ROOT));
+					if (type == null) {
+						sendMessage(Bukkit.getConsoleSender(), "Messages.type_load_warning", "%entity%", name);
+					}
+					return type;
+				})
+				.filter(Objects::nonNull)
+				.collect(Collectors.toCollection(() -> EnumSet.noneOf(EntityType.class)));
+
+        List<String> loadedEntityNames = tempEntities.stream()
+                .map(EntityType::name)
+                .collect(Collectors.toList());
+
         if (loadedEntityNames.isEmpty()) {
             sendMessage(Bukkit.getConsoleSender(), "Messages.list_empty");
         } else {
@@ -282,9 +297,7 @@ public class EntityPortalLock extends JavaPlugin implements Listener, CommandExe
             sendMessage(Bukkit.getConsoleSender(), "Messages.type_load_success",
                     "%entity%", entityList);
         }
-        tempEntities.sort(Comparator.comparing(EntityType::name));
-        targetEntities.clear();
-        targetEntities.addAll(tempEntities);
+		targetEntities = Collections.unmodifiableSet(tempEntities);
     }
 
     private void reloadConfigSettings() {
@@ -299,25 +312,21 @@ public class EntityPortalLock extends JavaPlugin implements Listener, CommandExe
 
     private void saveEntityListToConfig() {
         FileConfiguration config = getConfig();
-        List<String> entityNames = new ArrayList<>();
-        for (EntityType type : targetEntities) {
-            entityNames.add(type.name());
-        }
-        entityNames.sort(Comparator.naturalOrder());
+		Set<EntityType> snapshot = targetEntities;
+        List<String> entityNames = snapshot.stream()
+                .map(EntityType::name)
+                .sorted()
+                .collect(Collectors.toList());
         config.set("EntityTypeList", entityNames);
         saveConfig();
     }
 
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
     public void onEntityPortal(EntityPortalEvent event) {
-        EntityType entityType = event.getEntityType();
-        boolean shouldBlock;
-        if (isBlacklistMode) {
-            shouldBlock = targetEntities.contains(entityType);
-        } else {
-            shouldBlock = !targetEntities.contains(entityType);
-        }
-        if (shouldBlock) {
+		final boolean currentMode = isBlacklistMode;
+		final Set<EntityType> currentEntities = targetEntities;
+		boolean shouldDeny = (currentMode == currentEntities.contains(event.getEntityType()));
+        if (shouldDeny) {
             event.setCancelled(true);
         }
     }

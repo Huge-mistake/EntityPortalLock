@@ -17,7 +17,7 @@ import org.bukkit.entity.EntityType;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
-import org.bukkit.event.entity.EntityPortalEvent;
+import org.bukkit.event.entity.EntityPortalEnterEvent;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.jetbrains.annotations.NotNull;
 
@@ -281,7 +281,7 @@ public class EntityPortalLock extends JavaPlugin implements Listener, CommandExe
     }
 
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
-    public void onEntityPortal(EntityPortalEvent event) {
+    public void onEntityPortal(EntityPortalEnterEvent event) {
 		boolean shouldDeny = (isBlacklistMode == targetEntities.contains(event.getEntityType()));
         if (shouldDeny) {
             event.setCancelled(true);

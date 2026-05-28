@@ -277,11 +277,12 @@ public class EntityPortalLock extends JavaPlugin implements Listener, CommandExe
         List<String> entityNames = config.getStringList("EntityTypeList");
 		Set<EntityType> tempEntities = entityNames.stream()
 				.map(name -> {
-					EntityType type = ENTITY_TYPE_MAP.get(name.toLowerCase(Locale.ROOT));
-					if (type == null) {
+					try {
+						return EntityType.valueOf(name.toUpperCase(Locale.ROOT));
+					} catch (IllegalArgumentException e) {
 						sendMessage(Bukkit.getConsoleSender(), "Messages.type_load_warning", "%entity%", name);
+						return null;
 					}
-					return type;
 				})
 				.filter(Objects::nonNull)
 				.collect(Collectors.toCollection(() -> EnumSet.noneOf(EntityType.class)));

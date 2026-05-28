@@ -137,15 +137,12 @@ public class EntityPortalLock extends JavaPlugin implements Listener, CommandExe
                 EntityType type = EntityType.valueOf(args[1].toUpperCase(Locale.ROOT));
                 if (targetEntities.add(type)) {
                     saveEntityListToConfig();
-                    sendMessage(sender, "Messages.type_add",
-                            "%entity%",type.name());
+                    sendMessage(sender, "Messages.type_add", "%entity%",type.name());
                 } else {
-                    sendMessage(sender, "Messages.type_already_in_list",
-                            "%entity%", type.name());
+                    sendMessage(sender, "Messages.type_already_in_list", "%entity%", type.name());
                 }
             } catch (IllegalArgumentException e) {
-                sendMessage(sender, "Messages.invalid_type",
-                        "%entity%", args[1]);
+                sendMessage(sender, "Messages.invalid_type", "%entity%", args[1]);
             }
             return true;
         }
@@ -159,15 +156,12 @@ public class EntityPortalLock extends JavaPlugin implements Listener, CommandExe
                 EntityType type = EntityType.valueOf(args[1].toUpperCase(Locale.ROOT));
                 if (targetEntities.remove(type)) {
                     saveEntityListToConfig();
-                    sendMessage(sender, "Messages.type_remove",
-                            "%entity%", type.name());
+                    sendMessage(sender, "Messages.type_remove", "%entity%", type.name());
                 } else {
-                    sendMessage(sender, "Messages.type_not_in_list",
-                            "%entity%", type.name());
+                    sendMessage(sender, "Messages.type_not_in_list", "%entity%", type.name());
                 }
             } catch (IllegalArgumentException e) {
-                sendMessage(sender, "Messages.invalid_type",
-                        "%entity%", args[1]);
+                sendMessage(sender, "Messages.invalid_type", "%entity%", args[1]);
             }
             return true;
         }
@@ -187,8 +181,7 @@ public class EntityPortalLock extends JavaPlugin implements Listener, CommandExe
                     .map(EntityType::name)
                     .sorted()
                     .collect(Collectors.joining(", "));
-            sendMessage(sender, "Messages.entity_list",
-                    "%list%", entityList);
+            sendMessage(sender, "Messages.entity_list", "%list%", entityList);
             return true;
         }
         // invalid command
@@ -264,8 +257,7 @@ public class EntityPortalLock extends JavaPlugin implements Listener, CommandExe
             sendMessage(Bukkit.getConsoleSender(), "Messages.list_empty");
         } else {
             String entityList = String.join(", ", loadedEntityNames);
-            sendMessage(Bukkit.getConsoleSender(), "Messages.type_load_success",
-                    "%entity%", entityList);
+            sendMessage(Bukkit.getConsoleSender(), "Messages.type_load_success", "%entity%", entityList);
         }
 		targetEntities = Collections.unmodifiableSet(tempEntities);
     }

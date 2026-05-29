@@ -17,7 +17,7 @@ import org.bukkit.entity.EntityType;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
-import org.bukkit.event.entity.EntityPortalEnterEvent;
+import org.bukkit.event.entity.EntityPortalEvent;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.jetbrains.annotations.NotNull;
 
@@ -224,7 +224,7 @@ public class EntityPortalLock extends JavaPlugin implements Listener, CommandExe
         return completions;
     }
 
-	private void loadConfigSettings() {
+    private void loadConfigSettings() {
         FileConfiguration config = getConfig();
         isBlacklistMode = config.getBoolean("ListMode.Blacklist", true);
         PREFIX = config.getString("Prefix");
@@ -280,14 +280,10 @@ public class EntityPortalLock extends JavaPlugin implements Listener, CommandExe
         saveConfig();
     }
 
-    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
-    public void onEntityPortal(EntityPortalEnterEvent event) {
-		boolean shouldDeny = (isBlacklistMode == targetEntities.contains(event.getEntityType()));
-        if (shouldDeny) {
-			if (event.getEntity() instanceof org.bukkit.entity.Player) {
-				event.getEntity().sendMessage("你无法使用传送门");
-			}
-            event.setCancelled(true);
-        }
-    }
+	@EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
+	public void onEntityPortal(EntityPortalEvent event) {
+		if (isBlacklistMode == targetEntities.contains(event.getEntityType())) {
+			event.setCancelled(true);
+		}
+	}
 }

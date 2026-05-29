@@ -44,7 +44,7 @@ public class EntityPortalLock extends JavaPlugin implements Listener, CommandExe
 	private volatile String PREFIX = "";
 
 	private static final List<String> ALL_ENTITY_TYPES = Arrays.stream(EntityType.values())
-			.map(Enum::name)
+			.map(EntityType::name)
 			.sorted(String.CASE_INSENSITIVE_ORDER)
 			.collect(Collectors.toList());
 

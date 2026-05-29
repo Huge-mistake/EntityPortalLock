@@ -206,17 +206,10 @@ public class EntityPortalLock extends JavaPlugin implements Listener, CommandExe
 			case 2:
 				String subCommand = args[0].toLowerCase(Locale.ROOT);
 				if (subCommand.equals("add") || subCommand.equals("remove")) {
-					List<String> allEntityTypes;
-					if (subCommand.equals("add")) {
-						allEntityTypes = ALL_ENTITY_TYPES.stream()
-								.filter(type -> !targetEntities.contains(EntityType.valueOf(type)))
-								.collect(Collectors.toList());
-					} else {
-						// subCommand: remove
-						allEntityTypes = ALL_ENTITY_TYPES.stream()
-								.filter(type -> targetEntities.contains(EntityType.valueOf(type)))
-								.collect(Collectors.toList());
-					}
+					boolean isAdd = subCommand.equals("add");
+					List<String> allEntityTypes = ALL_ENTITY_TYPES.stream()
+							.filter(type -> isAdd != targetEntities.contains(EntityType.valueOf(type)))
+							.collect(Collectors.toList());
 					return filterCompletions(allEntityTypes, args[1]);
 				}
 				break;

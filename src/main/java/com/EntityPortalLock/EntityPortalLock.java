@@ -18,6 +18,7 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.entity.EntityPortalEvent;
+import org.bukkit.event.player.PlayerPortalEvent;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.jetbrains.annotations.NotNull;
 
@@ -273,9 +274,20 @@ public class EntityPortalLock extends JavaPlugin implements Listener, CommandExe
 		saveConfig();
 	}
 
+	private boolean shouldDeny(EntityType type) {
+		return isBlacklistMode == targetEntities.contains(type);
+	}
+
 	@EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
 	public void onEntityPortal(EntityPortalEvent event) {
-		if (isBlacklistMode == targetEntities.contains(event.getEntityType())) {
+		if (shouldDeny(event.getEntityType())) {
+			event.setCancelled(true);
+		}
+	}
+
+	@EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
+	public void onPlayerPortal(PlayerPortalEvent event) {
+		if (shouldDeny(event.getPlayer().getType())) {
 			event.setCancelled(true);
 		}
 	}
